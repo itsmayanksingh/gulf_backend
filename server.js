@@ -6,7 +6,13 @@ const bodyParser = require('body-parser');
 const crypto = require('crypto');
 
 const app = express();
-app.use(cors());
+
+// CORS: Allow your frontend domain (replace with actual one)
+app.use(cors({
+  origin: 'https://gulftoworldconsultants.com', // ✅ Replace with your frontend domain
+  methods: ['POST'],
+}));
+
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
@@ -19,39 +25,35 @@ const {
   PORT = 7000,
 } = process.env;
 
-// Build hash with exactly 10 empty fields between email and salt
+// Build hash with 10 empty fields between email and salt
 function generateHash({ key, txnid, amount, productinfo, firstname, email }) {
   const head = [key, txnid, amount, productinfo, firstname, email].join('|');
-  const empties = Array(10).fill('').join('|'); // yields 10 pipes: ||||||||||
+  const empties = Array(10).fill('').join('|'); // ||||||||||
   const hashString = `${head}|${empties}|${PAYU_SALT}`;
-
-  console.log('Corrected HashString:', hashString);
   return crypto.createHash('sha512').update(hashString).digest('hex');
 }
 
+// POST /api/payment - generate PayU form and redirect
 app.post('/api/payment', (req, res) => {
   const { fullName, email, mobile, amount } = req.body;
-  const txnid      = `txn_${Date.now()}`;
+  const txnid = `txn_${Date.now()}`;
   const productinfo = 'Payment';
 
-  // Prepare the data
   const payload = {
-    key:          PAYU_KEY,
+    key: PAYU_KEY,
     txnid,
-    amount:       amount.toString(),
+    amount: amount.toString(),
     productinfo,
-    firstname:    fullName,
+    firstname: fullName,
     email,
-    phone:        mobile,
-    surl:         PAYU_SUCCESS_URL,
-    furl:         PAYU_FAILURE_URL,
-    service_provider: 'payu_paisa'
+    phone: mobile,
+    surl: PAYU_SUCCESS_URL,
+    furl: PAYU_FAILURE_URL,
+    service_provider: 'payu_paisa',
   };
 
-  // Generate hash
   const hash = generateHash(payload);
 
-  // Build auto-submitting form
   const formFields = Object.entries({ ...payload, hash })
     .map(([k, v]) => `<input type="hidden" name="${k}" value="${v}"/>`)
     .join('\n');
@@ -69,5 +71,5 @@ app.post('/api/payment', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Backend running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
